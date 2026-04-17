@@ -162,8 +162,8 @@ export default function AdminDashboard() {
 
                 {/* Filters and Actions */}
                 <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col xl:flex-row gap-4 justify-between items-center">
-                    <div className="flex flex-col sm:flex-row flex-wrap gap-3 w-full xl:w-auto">
-                        <div className="relative w-full sm:w-auto">
+                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 w-full xl:w-auto">
+                        <div className="relative col-span-2 sm:col-span-1 w-full sm:w-auto">
                             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                             <input
                                 type="text"

@@ -64,8 +64,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-gray-50">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+    <div className="min-h-screen flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50">
+      <div className="mx-auto w-full max-w-md">
         <div className="flex justify-center">
           <img src="https://res.cloudinary.com/dujkjlu4p/image/upload/v1776448456/bppimt-slt-logo_jii1cf.webp" alt="BPPIMT College Logo" className="h-24 w-auto object-contain drop-shadow-sm" />
         </div>
@@ -77,8 +77,8 @@ export default function LoginPage() {
         </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-12 px-4 shadow-xl shadow-gray-200/50 sm:rounded-2xl sm:px-10 border border-gray-100 text-center flex flex-col items-center">
+      <div className="mt-8 mx-auto w-full max-w-md">
+        <div className="bg-white py-12 px-6 shadow-xl shadow-gray-200/50 rounded-2xl sm:px-10 border border-gray-100 text-center flex flex-col items-center">
           {error && (
             <div className="mb-6 w-full bg-red-50 border border-red-200 p-4 rounded-lg flex items-start text-left">
               <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 mr-3 flex-shrink-0" />
