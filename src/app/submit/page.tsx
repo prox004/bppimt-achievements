@@ -399,7 +399,7 @@ export default function SubmitPage() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">Certificate<span className="text-red-500 ml-1">*</span></label>
-                                        <p className="text-[10px] text-gray-500 mt-0.5 mb-1">Upload valid proof (PDF / Image)</p>
+                                        <p className="text-[10px] text-gray-500 mt-0.5 mb-1">Upload valid proof (PDF / Image) &bull; <strong>Max 2MB</strong></p>
                                         <div className="mt-1 flex items-center">
                                             <div className="relative border border-gray-300 border-dashed rounded-lg px-2 py-2 flex justify-center w-full hover:bg-gray-50 transition-colors overflow-hidden">
                                                 <div className="text-center w-full flex items-center justify-center gap-2">
