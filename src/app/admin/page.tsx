@@ -24,6 +24,7 @@ interface Achievement {
     eventName: string;
     date: string;
     certificateUrl: string;
+    position?: string;
 }
 
 interface CombinedRow extends Student, Achievement { }
@@ -96,9 +97,9 @@ export default function AdminDashboard() {
     }, [rows, search, filterCurrentYear, filterAchYear, filterDept, filterType]);
 
     const exportCSV = () => {
-        const headers = ["Name,Email,Roll Number,Department,Current Year,Achievement Year,Type,Event,Date,Certificate URL"];
+        const headers = ["Name,Email,Roll Number,Department,Current Year,Achievement Year,Type,Event,Position,Date,Certificate URL"];
         const csvRows = filteredRows.map(row =>
-            `"${row.fullName}","${row.email}","${row.rollNumber}","${row.department}","${row.currentYear}","${row.academicYear}","${row.type}","${row.eventName}","${row.date}","${row.certificateUrl}"`
+            `"${row.fullName}","${row.email}","${row.rollNumber}","${row.department}","${row.currentYear}","${row.academicYear}","${row.type}","${row.eventName}","${row.position || ''}","${row.date}","${row.certificateUrl}"`
         );
         const csvContent = headers.concat(csvRows).join("\n");
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -222,7 +223,7 @@ export default function AdminDashboard() {
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    {["Name", "Roll", "Dept", "Current Year", "Achieved Year", "Type", "Event", "Date", "Certificate"].map((h) => (
+                                    {["Name", "Roll", "Dept", "Current Year", "Achieved Year", "Type", "Event", "Position", "Date", "Certificate"].map((h) => (
                                         <th key={h} className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
                                             {h}
                                         </th>
@@ -244,6 +245,7 @@ export default function AdminDashboard() {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{row.academicYear}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.type}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.eventName}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.position || "-"}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(row.date).toLocaleDateString()}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             <a href={row.certificateUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 font-medium inline-flex items-center">
@@ -254,7 +256,7 @@ export default function AdminDashboard() {
                                 ))}
                                 {filteredRows.length === 0 && (
                                     <tr>
-                                        <td colSpan={9} className="px-6 py-12 text-center text-sm text-gray-500">
+                                        <td colSpan={10} className="px-6 py-12 text-center text-sm text-gray-500">
                                             No achievements found matching your criteria.
                                         </td>
                                     </tr>

@@ -15,6 +15,7 @@ interface Achievement {
     eventName: string;
     date: string;
     file: File | null;
+    position?: string;
 }
 
 interface PastAchievement {
@@ -25,6 +26,7 @@ interface PastAchievement {
     date: string;
     certificateUrl: string;
     createdAt: string;
+    position?: string;
 }
 
 const DEPARTMENTS = ["CSE", "IT", "ECE", "EE", "BCA", "MCA"];
@@ -105,7 +107,7 @@ export default function SubmitPage() {
     const addAchievement = () => {
         setAchievements([
             ...achievements,
-            { id: uuidv4(), academicYear: "", type: "", eventName: "", date: "", file: null }
+            { id: uuidv4(), academicYear: "", type: "", eventName: "", date: "", file: null, position: "" }
         ]);
     };
 
@@ -169,6 +171,7 @@ export default function SubmitPage() {
                 formData.append("type", ach.type);
                 formData.append("eventName", ach.eventName);
                 formData.append("date", ach.date);
+                if (ach.position) formData.append("position", ach.position);
 
                 const uploadRes = await fetch("/api/upload", {
                     method: "POST",
@@ -189,7 +192,8 @@ export default function SubmitPage() {
                     eventName: ach.eventName,
                     date: ach.date,
                     certificateUrl: fileUrl,
-                    createdAt: new Date().toISOString()
+                    createdAt: new Date().toISOString(),
+                    position: ach.position || ""
                 });
 
                 current++;
@@ -266,7 +270,7 @@ export default function SubmitPage() {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Full Name</label>
+                                <label className="block text-sm font-medium text-gray-700">Full Name<span className="text-red-500 ml-1">*</span></label>
                                 <input required type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm" />
                             </div>
                             <div>
@@ -274,19 +278,19 @@ export default function SubmitPage() {
                                 <input required type="email" value={user.email || ""} disabled className="mt-1 block w-full px-3 py-2 border border-gray-200 bg-gray-50 text-gray-500 rounded-lg shadow-sm sm:text-sm cursor-not-allowed" />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Roll Number</label>
+                                <label className="block text-sm font-medium text-gray-700">Roll Number<span className="text-red-500 ml-1">*</span></label>
                                 <input required type="text" value={rollNumber} onChange={(e) => setRollNumber(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm" />
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Department</label>
+                                    <label className="block text-sm font-medium text-gray-700">Department<span className="text-red-500 ml-1">*</span></label>
                                     <select required value={department} onChange={(e) => setDepartment(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm bg-white">
                                         <option value="" disabled>Select</option>
                                         {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Current Year</label>
+                                    <label className="block text-sm font-medium text-gray-700">Current Year<span className="text-red-500 ml-1">*</span></label>
                                     <select required value={currentYear} onChange={(e) => setCurrentYear(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm bg-white">
                                         <option value="" disabled>Select</option>
                                         {CURRENT_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
@@ -323,40 +327,48 @@ export default function SubmitPage() {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700">Achieved Year</label>
+                                        <label className="block text-sm font-medium text-gray-700">Achieved Year<span className="text-red-500 ml-1">*</span></label>
+                                        <p className="text-[10px] text-gray-500 mt-0.5 mb-1">Session when this was awarded</p>
                                         <select required value={ach.academicYear} onChange={(e) => updateAchievement(ach.id, "academicYear", e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm bg-white">
                                             <option value="" disabled>Select Year</option>
                                             {ACADEMIC_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700">Type</label>
+                                        <label className="block text-sm font-medium text-gray-700">Type<span className="text-red-500 ml-1">*</span></label>
+                                        <p className="text-[10px] text-gray-500 mt-0.5 mb-1">Category of the achievement</p>
                                         <select required value={ach.type} onChange={(e) => updateAchievement(ach.id, "type", e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm bg-white">
                                             <option value="" disabled>Select Type</option>
                                             {ACHIEVEMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700">Event Name</label>
+                                        <label className="block text-sm font-medium text-gray-700">Event Name<span className="text-red-500 ml-1">*</span></label>
+                                        <p className="text-[10px] text-gray-500 mt-0.5 mb-1">Full name of the competition or event</p>
                                         <input required type="text" value={ach.eventName} onChange={(e) => updateAchievement(ach.id, "eventName", e.target.value)} placeholder="e.g. Hackathon 2023" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm" />
                                     </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700">Date</label>
-                                            <input required type="date" value={ach.date} onChange={(e) => updateAchievement(ach.id, "date", e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700">Certificate</label>
-                                            <div className="mt-1 flex items-center">
-                                                <div className="relative border border-gray-300 border-dashed rounded-lg px-2 py-2 flex justify-center w-full hover:bg-gray-50 transition-colors overflow-hidden">
-                                                    <div className="text-center w-full flex items-center justify-center gap-2">
-                                                        <Upload className="w-4 h-4 text-gray-400 shrink-0" />
-                                                        <span className="text-xs text-gray-600 truncate max-w-[80px]">
-                                                            {ach.file ? ach.file.name : "Upload"}
-                                                        </span>
-                                                    </div>
-                                                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" required={!ach.file} onChange={(e) => updateAchievement(ach.id, "file", e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Position / Rank</label>
+                                        <p className="text-[10px] text-gray-500 mt-0.5 mb-1">Optional (e.g., 1st Prize, Finalist)</p>
+                                        <input type="text" value={ach.position || ""} onChange={(e) => updateAchievement(ach.id, "position", e.target.value)} placeholder="e.g. 1st Prize" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Date<span className="text-red-500 ml-1">*</span></label>
+                                        <p className="text-[10px] text-gray-500 mt-0.5 mb-1">When it was held or awarded</p>
+                                        <input required type="date" value={ach.date} onChange={(e) => updateAchievement(ach.id, "date", e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Certificate<span className="text-red-500 ml-1">*</span></label>
+                                        <p className="text-[10px] text-gray-500 mt-0.5 mb-1">Upload valid proof (PDF / Image)</p>
+                                        <div className="mt-1 flex items-center">
+                                            <div className="relative border border-gray-300 border-dashed rounded-lg px-2 py-2 flex justify-center w-full hover:bg-gray-50 transition-colors overflow-hidden">
+                                                <div className="text-center w-full flex items-center justify-center gap-2">
+                                                    <Upload className="w-4 h-4 text-gray-400 shrink-0" />
+                                                    <span className="text-xs text-gray-600 truncate max-w-[80px] sm:max-w-[120px]">
+                                                        {ach.file ? ach.file.name : "Upload"}
+                                                    </span>
                                                 </div>
+                                                <input type="file" accept=".pdf,.jpg,.jpeg,.png" required={!ach.file} onChange={(e) => updateAchievement(ach.id, "file", e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                                             </div>
                                         </div>
                                     </div>
