@@ -138,6 +138,13 @@ export default function SubmitPage() {
             return;
         }
 
+        // Extremely restrictive 2MB File check 
+        const oversizedFiles = achievements.filter(a => a.file && a.file.size > 2 * 1024 * 1024);
+        if (oversizedFiles.length > 0) {
+            alert("One or more files exceed the 2MB limit. Please compress your files to under 2MB before uploading!");
+            return;
+        }
+
         setIsSubmitting(true);
         setUploadProgress("Initializing Profile...");
         try {
@@ -156,12 +163,46 @@ export default function SubmitPage() {
 
             // Upload files and create achievements
             for (const ach of achievements) {
-                setUploadProgress(`Uploading certificate ${current} of ${achievements.length} to Cloudinary...`);
+                setUploadProgress(`Securing connection for certificate ${current}...`);
 
+                // 1. Get Signature payload
+                const signRes = await fetch("/api/sign-cloudinary", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ folder: `Certificates/${fullName.replace(/[^a-zA-Z0-9 ]/g, "").trim()}` })
+                });
+                
+                if (!signRes.ok) throw new Error("Failed to secure Cloudinary transmission");
+                const signData = await signRes.json();
+
+                setUploadProgress(`Uploading certificate ${current} of ${achievements.length}...`);
+
+                // 2. Direct client upload to Cloudinary (Bypass Vercel 4.5MB limitation completely)
+                const cloudFormData = new FormData();
+                cloudFormData.append("file", ach.file!);
+                cloudFormData.append("api_key", signData.apiKey);
+                cloudFormData.append("timestamp", signData.timestamp.toString());
+                cloudFormData.append("signature", signData.signature);
+                cloudFormData.append("folder", `Certificates/${fullName.replace(/[^a-zA-Z0-9 ]/g, "").trim()}`);
+                
+                const cloudRes = await fetch(`https://api.cloudinary.com/v1_1/${signData.cloudName}/auto/upload`, {
+                    method: "POST",
+                    body: cloudFormData
+                });
+                
+                const cloudData = await cloudRes.json();
+                if (!cloudRes.ok) {
+                    throw new Error(cloudData.error?.message || "Failed to upload file to Cloudinary");
+                }
+
+                const fileUrl = cloudData.secure_url;
+
+                setUploadProgress(`Registering certificate ${current}...`);
+
+                // 3. Save purely the URL payload to Google Sheets route
                 const formData = new FormData();
-                formData.append("file", ach.file!);
+                formData.append("fileUrl", fileUrl);
                 formData.append("userId", user.uid);
-                formData.append("fileName", `${ach.id}_${ach.file!.name}`);
                 formData.append("fullName", fullName);
                 formData.append("email", user.email || "");
                 formData.append("rollNumber", rollNumber);
@@ -181,11 +222,10 @@ export default function SubmitPage() {
                 const uploadData = await uploadRes.json();
 
                 if (!uploadRes.ok) {
-                    throw new Error(`Server Error: ${uploadData.error || uploadData.message || "Failed to upload file to Cloudinary"}`);
+                    throw new Error(`Server Error: ${uploadData.error || uploadData.message || "Failed to log to Google Sheets"}`);
                 }
 
-                const fileUrl = uploadData.url;
-
+                // 4. Save to Firebase subcollection
                 await addDoc(collection(db, "users", user.uid, "certificates"), {
                     academicYear: ach.academicYear,
                     type: ach.type,
@@ -201,9 +241,9 @@ export default function SubmitPage() {
 
             setUploadProgress("Finalizing Records...");
             setSubmitted(true);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Submission error:", error);
-            alert("Failed to submit. Please try again.");
+            alert(`Failed to submit: ${error.message || "Unknown error"}. Please try again.`);
         } finally {
             setIsSubmitting(false);
             setUploadProgress("");

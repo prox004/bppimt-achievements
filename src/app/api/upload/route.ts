@@ -30,41 +30,15 @@ const sheets = google.sheets({ version: "v4", auth });
 export async function POST(req: Request) {
     try {
         const formData = await req.formData();
-        const file = formData.get("file") as File | null;
+        const fileUrl = formData.get("fileUrl") as string | null;
         const userId = formData.get("userId") as string | null;
-        const fileName = formData.get("fileName") as string | null;
         const fullName = formData.get("fullName") as string;
 
-        if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-            return NextResponse.json({ error: "Server Configuration Error: Missing Cloudinary credentials. Please restart 'npm run dev' to sync your .env variables!" }, { status: 500 });
-        }
-
-        if (!file || !userId || !fileName || !fullName) {
+        if (!fileUrl || !userId || !fullName) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
-        const buffer = Buffer.from(await file.arrayBuffer());
-
-        // Upload to Cloudinary using a stream
-        const safeFolderName = fullName.replace(/[^a-zA-Z0-9 ]/g, "").trim();
-        const cloudinaryFolder = `Certificates/${safeFolderName}`;
-
-        const uploadResult = await new Promise<any>((resolve, reject) => {
-            const uploadStream = cloudinary.uploader.upload_stream(
-                {
-                    folder: cloudinaryFolder,
-                    resource_type: "auto", // Automatically detect if it's pdf, image, etc.
-                    public_id: fileName.split('.')[0] // remove extension so cloudinary handles it
-                },
-                (error, result) => {
-                    if (error) return reject(error);
-                    resolve(result);
-                }
-            );
-            uploadStream.end(buffer);
-        });
-
-        const fileUrl = uploadResult.secure_url;
+        // Add to Google Sheets
 
         // Optionally, append to Google Sheets
         const email = formData.get("email") as string;
@@ -154,8 +128,7 @@ export async function POST(req: Request) {
 
         return NextResponse.json({
             success: true,
-            url: fileUrl,
-            id: uploadResult.public_id,
+            url: fileUrl
         });
     } catch (error: any) {
         console.error("Upload handler error:", error);
