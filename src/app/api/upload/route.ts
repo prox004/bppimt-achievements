@@ -74,6 +74,7 @@ export async function POST(req: Request) {
         const academicYear = formData.get("academicYear") as string;
         const type = formData.get("type") as string;
         const eventName = formData.get("eventName") as string;
+        const position = formData.get("position") as string || "";
         const date = formData.get("date") as string;
 
         if (GOOGLE_SHEET_ID && academicYear) {
@@ -90,6 +91,7 @@ export async function POST(req: Request) {
                     academicYear,
                     type,
                     eventName,
+                    position,
                     date,
                     fileUrl
                 ]
@@ -99,7 +101,7 @@ export async function POST(req: Request) {
                 // 1. Append the new row at the bottom
                 await sheets.spreadsheets.values.append({
                     spreadsheetId: GOOGLE_SHEET_ID,
-                    range: `${sheetTabName}!A:J`,
+                    range: `${sheetTabName}!A:K`,
                     valueInputOption: "USER_ENTERED",
                     requestBody: {
                         values: values,
@@ -130,7 +132,7 @@ export async function POST(req: Request) {
                                             sheetId: specificSheetId,
                                             startRowIndex: 1, // Start sorting from row 2
                                             startColumnIndex: 0,
-                                            endColumnIndex: 10, // Sort across columns A-J
+                                            endColumnIndex: 11, // Sort across columns A-K
                                         },
                                         sortSpecs: [
                                             {
