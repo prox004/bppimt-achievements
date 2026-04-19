@@ -72,15 +72,47 @@ export async function POST(req: Request) {
             ];
 
             try {
-                // 1. Append the new row at the bottom
-                await sheets.spreadsheets.values.append({
-                    spreadsheetId: GOOGLE_SHEET_ID,
-                    range: `${sheetTabName}!A:K`,
-                    valueInputOption: "USER_ENTERED",
-                    requestBody: {
-                        values: values,
-                    },
-                });
+                // 1. Check for existing duplicate records
+                let rows: any[] = [];
+                try {
+                    const existingData = await sheets.spreadsheets.values.get({
+                        spreadsheetId: GOOGLE_SHEET_ID,
+                        range: `${sheetTabName}!A:K`
+                    });
+                    rows = existingData.data.values || [];
+                } catch (e: any) {
+                    console.log("Could not fetch existing rows. Sheet might be empty or missing. Proceeding to append.");
+                }
+
+                // Check for duplicate based on Roll Number (Col 2), Type (Col 6), and Event Name (Col 7)
+                const duplicateIndex = rows.findIndex(row => 
+                    row[2] === rollNumber && 
+                    row[6] === type && 
+                    row[7] === eventName
+                );
+
+                if (duplicateIndex !== -1) {
+                    // Update the existing row (sheets are 1-indexed)
+                    const rowIndex = duplicateIndex + 1;
+                    await sheets.spreadsheets.values.update({
+                        spreadsheetId: GOOGLE_SHEET_ID,
+                        range: `${sheetTabName}!A${rowIndex}:K${rowIndex}`,
+                        valueInputOption: "USER_ENTERED",
+                        requestBody: {
+                            values: values,
+                        },
+                    });
+                } else {
+                    // Append the new row at the bottom
+                    await sheets.spreadsheets.values.append({
+                        spreadsheetId: GOOGLE_SHEET_ID,
+                        range: `${sheetTabName}!A:K`,
+                        valueInputOption: "USER_ENTERED",
+                        requestBody: {
+                            values: values,
+                        },
+                    });
+                }
 
                 // 2. Fetch sheet properties to get the numerical sheetId of the sub-sheet
                 const sheetMeta = await sheets.spreadsheets.get({

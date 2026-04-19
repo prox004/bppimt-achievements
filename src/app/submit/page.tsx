@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, doc, setDoc, getDoc, getDocs } from "firebase/firestore";
 import { v4 as uuidv4 } from "uuid";
-import { Plus, Trash2, Upload, FileText, CheckCircle2, LogOut, Loader2, History, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Upload, FileText, CheckCircle2, LogOut, Loader2, History, ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
 
 interface Achievement {
     id: string;
@@ -52,6 +52,7 @@ export default function SubmitPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [uploadProgress, setUploadProgress] = useState("");
     const [submitted, setSubmitted] = useState(false);
+    const [submissionResults, setSubmissionResults] = useState<{successes: string[], failures: {eventName: string, error: string}[]} | null>(null);
 
     useEffect(() => {
         if (!loading) {
@@ -160,86 +161,99 @@ export default function SubmitPage() {
             }, { merge: true });
 
             let current = 1;
+            const successes: string[] = [];
+            const failures: { eventName: string, error: string }[] = [];
+            const remainingAchievements: Achievement[] = [];
 
             // Upload files and create achievements
             for (const ach of achievements) {
-                setUploadProgress(`Securing connection for certificate ${current}...`);
+                try {
+                    setUploadProgress(`Securing connection for certificate ${current}...`);
 
-                // 1. Get Signature payload
-                const signRes = await fetch("/api/sign-cloudinary", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ folder: `Certificates/${fullName.replace(/[^a-zA-Z0-9 ]/g, "").trim()}` })
-                });
-                
-                if (!signRes.ok) throw new Error("Failed to secure Cloudinary transmission");
-                const signData = await signRes.json();
+                    // 1. Get Signature payload
+                    const signRes = await fetch("/api/sign-cloudinary", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ folder: `Certificates/${fullName.replace(/[^a-zA-Z0-9 ]/g, "").trim()}` })
+                    });
+                    
+                    if (!signRes.ok) throw new Error("Failed to secure Cloudinary transmission");
+                    const signData = await signRes.json();
 
-                setUploadProgress(`Uploading certificate ${current} of ${achievements.length}...`);
+                    setUploadProgress(`Uploading certificate ${current} of ${achievements.length}...`);
 
-                // 2. Direct client upload to Cloudinary (Bypass Vercel 4.5MB limitation completely)
-                const cloudFormData = new FormData();
-                cloudFormData.append("file", ach.file!);
-                cloudFormData.append("api_key", signData.apiKey);
-                cloudFormData.append("timestamp", signData.timestamp.toString());
-                cloudFormData.append("signature", signData.signature);
-                cloudFormData.append("folder", `Certificates/${fullName.replace(/[^a-zA-Z0-9 ]/g, "").trim()}`);
-                
-                const cloudRes = await fetch(`https://api.cloudinary.com/v1_1/${signData.cloudName}/auto/upload`, {
-                    method: "POST",
-                    body: cloudFormData
-                });
-                
-                const cloudData = await cloudRes.json();
-                if (!cloudRes.ok) {
-                    throw new Error(cloudData.error?.message || "Failed to upload file to Cloudinary");
+                    // 2. Direct client upload to Cloudinary (Bypass Vercel 4.5MB limitation completely)
+                    const cloudFormData = new FormData();
+                    cloudFormData.append("file", ach.file!);
+                    cloudFormData.append("api_key", signData.apiKey);
+                    cloudFormData.append("timestamp", signData.timestamp.toString());
+                    cloudFormData.append("signature", signData.signature);
+                    cloudFormData.append("folder", `Certificates/${fullName.replace(/[^a-zA-Z0-9 ]/g, "").trim()}`);
+                    
+                    const cloudRes = await fetch(`https://api.cloudinary.com/v1_1/${signData.cloudName}/auto/upload`, {
+                        method: "POST",
+                        body: cloudFormData
+                    });
+                    
+                    const cloudData = await cloudRes.json();
+                    if (!cloudRes.ok) {
+                        throw new Error(cloudData.error?.message || "Failed to upload file to Cloudinary");
+                    }
+
+                    const fileUrl = cloudData.secure_url;
+
+                    setUploadProgress(`Registering certificate ${current}...`);
+
+                    // 3. Save purely the URL payload to Google Sheets route
+                    const formData = new FormData();
+                    formData.append("fileUrl", fileUrl);
+                    formData.append("userId", user.uid);
+                    formData.append("fullName", fullName);
+                    formData.append("email", user.email || "");
+                    formData.append("rollNumber", rollNumber);
+                    formData.append("department", department);
+                    formData.append("currentYear", currentYear);
+                    formData.append("academicYear", ach.academicYear);
+                    formData.append("type", ach.type);
+                    formData.append("eventName", ach.eventName);
+                    formData.append("date", ach.date);
+                    if (ach.position) formData.append("position", ach.position);
+
+                    const uploadRes = await fetch("/api/upload", {
+                        method: "POST",
+                        body: formData,
+                    });
+
+                    const uploadData = await uploadRes.json();
+
+                    if (!uploadRes.ok) {
+                        throw new Error(`Server Error: ${uploadData.error || uploadData.message || "Failed to log to Google Sheets"}`);
+                    }
+
+                    // 4. Save to Firebase subcollection
+                    await addDoc(collection(db, "users", user.uid, "certificates"), {
+                        academicYear: ach.academicYear,
+                        type: ach.type,
+                        eventName: ach.eventName,
+                        date: ach.date,
+                        certificateUrl: fileUrl,
+                        createdAt: new Date().toISOString(),
+                        position: ach.position || ""
+                    });
+
+                    successes.push(ach.eventName);
+                } catch (err: any) {
+                    console.error("Failed for", ach.eventName, err);
+                    failures.push({ eventName: ach.eventName, error: err.message || "Unknown error" });
+                    remainingAchievements.push(ach);
                 }
-
-                const fileUrl = cloudData.secure_url;
-
-                setUploadProgress(`Registering certificate ${current}...`);
-
-                // 3. Save purely the URL payload to Google Sheets route
-                const formData = new FormData();
-                formData.append("fileUrl", fileUrl);
-                formData.append("userId", user.uid);
-                formData.append("fullName", fullName);
-                formData.append("email", user.email || "");
-                formData.append("rollNumber", rollNumber);
-                formData.append("department", department);
-                formData.append("currentYear", currentYear);
-                formData.append("academicYear", ach.academicYear);
-                formData.append("type", ach.type);
-                formData.append("eventName", ach.eventName);
-                formData.append("date", ach.date);
-                if (ach.position) formData.append("position", ach.position);
-
-                const uploadRes = await fetch("/api/upload", {
-                    method: "POST",
-                    body: formData,
-                });
-
-                const uploadData = await uploadRes.json();
-
-                if (!uploadRes.ok) {
-                    throw new Error(`Server Error: ${uploadData.error || uploadData.message || "Failed to log to Google Sheets"}`);
-                }
-
-                // 4. Save to Firebase subcollection
-                await addDoc(collection(db, "users", user.uid, "certificates"), {
-                    academicYear: ach.academicYear,
-                    type: ach.type,
-                    eventName: ach.eventName,
-                    date: ach.date,
-                    certificateUrl: fileUrl,
-                    createdAt: new Date().toISOString(),
-                    position: ach.position || ""
-                });
 
                 current++;
             }
 
             setUploadProgress("Finalizing Records...");
+            setSubmissionResults({ successes, failures });
+            setAchievements(remainingAchievements);
             setSubmitted(true);
         } catch (error: any) {
             console.error("Submission error:", error);
@@ -254,22 +268,56 @@ export default function SubmitPage() {
         return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
     }
 
-    if (submitted) {
+    if (submitted && submissionResults) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center space-y-4">
-                    <div className="w-16 h-16 bg-green-100 text-green-500 rounded-full flex items-center justify-center mx-auto">
-                        <CheckCircle2 className="w-8 h-8" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-gray-900">Successfully Submitted!</h2>
-                    <p className="text-gray-500">Your achievements have been recorded successfully.</p>
+                <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full space-y-4">
+                    <div className="text-center">
+                        <div className={`w-16 h-16 ${submissionResults.failures.length === 0 ? 'bg-green-100 text-green-500' : 'bg-yellow-100 text-yellow-600'} rounded-full flex items-center justify-center mx-auto`}>
+                            {submissionResults.failures.length === 0 ? <CheckCircle2 className="w-8 h-8" /> : <AlertTriangle className="w-8 h-8" />}
+                        </div>
+                        <h2 className="text-2xl font-bold text-gray-900 mt-2">
+                            {submissionResults.failures.length === 0 ? "Successfully Submitted!" : "Partial Submission"}
+                        </h2>
+                        
+                        {submissionResults.successes.length > 0 && (
+                            <div className="mt-4 p-4 bg-green-50 text-green-800 rounded-lg text-sm text-left">
+                                <p className="font-semibold mb-2">Successfully Uploaded:</p>
+                                <ul className="list-disc pl-5 space-y-1">
+                                    {submissionResults.successes.map((name, i) => <li key={i}>{name}</li>)}
+                                </ul>
+                            </div>
+                        )}
 
-                    <button onClick={() => { setSubmitted(false); setAchievements([]); fetchHistory(); }} className="mt-4 w-full py-2 px-4 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-                        Submit More Certificates
-                    </button>
-                    <button onClick={signOut} className="mt-2 w-full py-2 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                        Log Out
-                    </button>
+                        {submissionResults.failures.length > 0 && (
+                             <div className="mt-4 p-4 bg-red-50 text-red-800 rounded-lg text-sm text-left">
+                                <p className="font-semibold mb-2">Failed to Upload (Remaining in Form):</p>
+                                <ul className="list-disc pl-5 space-y-2">
+                                    {submissionResults.failures.map((f, i) => (
+                                        <li key={i}>
+                                            <span className="font-medium">{f.eventName}</span><br/>
+                                            <span className="text-xs opacity-90">{f.error}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="space-y-2 mt-6">
+                        {submissionResults.failures.length > 0 ? (
+                           <button onClick={() => { setSubmitted(false); setSubmissionResults(null); fetchHistory(); }} className="w-full py-2 px-4 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                               Fix Failed Certificates
+                           </button>
+                        ) : (
+                           <button onClick={() => { setSubmitted(false); setSubmissionResults(null); setAchievements([]); fetchHistory(); }} className="w-full py-2 px-4 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                               Submit More Certificates
+                           </button>
+                        )}
+                        <button onClick={signOut} className="w-full py-2 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                            Log Out
+                        </button>
+                    </div>
                 </div>
             </div>
         );
