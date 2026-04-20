@@ -190,7 +190,10 @@ export default function SubmitPage() {
                     cloudFormData.append("signature", signData.signature);
                     cloudFormData.append("folder", `Certificates/${fullName.replace(/[^a-zA-Z0-9 ]/g, "").trim()}`);
                     
-                    const cloudRes = await fetch(`https://api.cloudinary.com/v1_1/${signData.cloudName}/auto/upload`, {
+                    const isPdf = ach.file!.type === "application/pdf" || ach.file!.name.toLowerCase().endsWith(".pdf");
+                    const resourceType = isPdf ? "raw" : "image";
+                    
+                    const cloudRes = await fetch(`https://api.cloudinary.com/v1_1/${signData.cloudName}/${resourceType}/upload`, {
                         method: "POST",
                         body: cloudFormData
                     });
